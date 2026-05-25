@@ -21,7 +21,7 @@ async def save_markdown(settings: Settings, digest: str) -> Path:
 async def send_telegram(settings: Settings, digest: str) -> None:
     if not settings.telegram_bot_token or not settings.telegram_chat_id:
         return
-    chunks = [digest[index : index + 3900] for index in range(0, len(digest), 3900)]
+    chunks = _telegram_chunks(digest)
     async with httpx.AsyncClient(timeout=25) as client:
         for chunk in chunks:
             response = await client.post(
@@ -29,10 +29,32 @@ async def send_telegram(settings: Settings, digest: str) -> None:
                 json={
                     "chat_id": settings.telegram_chat_id,
                     "text": chunk,
+                    "parse_mode": "HTML",
                     "disable_web_page_preview": True,
                 },
             )
             response.raise_for_status()
+
+
+def _telegram_chunks(digest: str, limit: int = 3800) -> list[str]:
+    if len(digest) <= limit:
+        return [digest]
+
+    chunks: list[str] = []
+    current = ""
+    for block in digest.split("\n\n━━━━━━━━━━━━\n\n"):
+        separator = "\n\n━━━━━━━━━━━━\n\n" if current else ""
+        candidate = f"{current}{separator}{block}"
+        if len(candidate) <= limit:
+            current = candidate
+            continue
+        if current:
+            chunks.append(current)
+        current = block
+
+    if current:
+        chunks.append(current)
+    return chunks
 
 
 def send_email(settings: Settings, digest: str) -> None:
@@ -74,4 +96,3 @@ async def deliver(settings: Settings, digest: str) -> Path:
     await send_webhook(settings, digest)
     LOGGER.info("Digest saved to %s", path)
     return path
-

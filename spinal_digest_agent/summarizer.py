@@ -29,16 +29,18 @@ async def build_ai_brief(settings: Settings, findings: list[Finding]) -> str | N
                 "role": "system",
                 "content": (
                     "You are a medical technology intelligence analyst. "
-                    "Write in Russian. Be concise, evidence-based, and avoid medical advice. "
-                    "Focus on spinal cord injury treatment trends, devices, trials, and regional relevance."
+                    "Write only in Russian. Be concise, evidence-based, and avoid medical advice. "
+                    "Use a clean Telegram digest style. Do not paste raw URLs. "
+                    "Focus on spinal cord injury treatment trends, stem cells, cell therapy, devices, trials, and regional relevance."
                 ),
             },
             {
                 "role": "user",
                 "content": (
-                    "Сделай утренний дайджест по этим материалам. "
-                    "Структура: 1) главное за утро, 2) Россия/Китай/Израиль/США, "
-                    "3) технологии и аппараты, 4) что стоит отслеживать дальше. "
+                    "Сделай краткую русскоязычную аналитическую сводку по этим материалам. "
+                    "Формат: сначала самое важное, затем короткие выводы по технологиям, рынку, бизнесу и клиническим перспективам. "
+                    "Пиши без воды, без длинных ссылок, без повторов и без неподтвержденных выводов. "
+                    "Каждый смысловой блок должен быть удобен для Telegram-поста. "
                     "Не выдумывай факты, используй только список ниже.\n\n"
                     f"{_format_items(findings)}"
                 ),
@@ -47,4 +49,3 @@ async def build_ai_brief(settings: Settings, findings: list[Finding]) -> str | N
         temperature=0.2,
     )
     return response.choices[0].message.content
-
