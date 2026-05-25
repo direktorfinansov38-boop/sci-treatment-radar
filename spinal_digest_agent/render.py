@@ -67,14 +67,40 @@ def _brief(item: Finding) -> str:
     return " ".join(parts)
 
 
+def _perspective(item: Finding) -> str:
+    text = f"{item.title} {item.summary} {' '.join(item.tags)}".lower()
+
+    if any(word in text for word in ["clinical trial", "phase 2", "phase 3", "fda", "breakthrough device"]):
+        return (
+            "Перспективность: высокая. Материал связан с клинической проверкой, регуляторным статусом или приближением технологии к практическому применению; такие разработки стоит отслеживать в первую очередь."
+        )
+    if any(word in text for word in ["first-in-human", "phase 1", "implant", "neurostimulation", "epidural stimulation", "bci"]):
+        return (
+            "Перспективность: выше средней. Технология выглядит значимой, но, скорее всего, еще требует клинического подтверждения, настройки протоколов и оценки безопасности для широкого применения."
+        )
+    if any(word in text for word in ["stem cell", "cell therapy", "cell transplantation", "exosome", "ipsc", "mesenchymal", "neural stem"]):
+        return (
+            "Перспективность: осторожно высокая. Клеточные и регенеративные подходы потенциально важны для восстановления тканей и функций, но практическая польза зависит от стадии испытаний, безопасности и воспроизводимости результата."
+        )
+    if any(word in text for word in ["robot", "exoskeleton", "rehabilitation", "gait"]):
+        return (
+            "Перспективность: практическая. Такие технологии чаще всего ближе к реабилитационному применению, но их влияние зависит от доступности, стоимости и доказанного улучшения самостоятельности пациента."
+        )
+    return (
+        "Перспективность: требует наблюдения. Материал релевантен теме восстановления после травмы спинного мозга, но для оценки реальной пользы нужны дополнительные данные о стадии разработки и результатах."
+    )
+
+
 def _item_block(index: int, item: Finding) -> str:
     title = escape(_topic_title(item))
     brief = _brief(item)
+    perspective = escape(_perspective(item))
     url = escape(item.url, quote=True)
 
     return (
         f"<b>{index}. {title}</b>\n\n"
         f"{brief}\n\n"
+        f"{perspective}\n\n"
         f"Источник: <a href=\"{url}\">открыть материал</a>"
     )
 

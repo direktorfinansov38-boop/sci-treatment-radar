@@ -32,6 +32,7 @@ async def build_ai_brief(settings: Settings, findings: list[Finding]) -> str | N
                     "Write only in Russian. Be concise, evidence-based, and avoid medical advice. "
                     "Use a clean Telegram digest style. Do not paste raw URLs. "
                     "Focus on spinal cord injury treatment trends, stem cells, cell therapy, devices, trials, and regional relevance."
+                    "Exclude general disability news, household products, pillows, mattresses, basic wheelchairs, charity, motivation, wellness, and anything unrelated to functional recovery after spinal cord injury."
                 ),
             },
             {
@@ -41,6 +42,9 @@ async def build_ai_brief(settings: Settings, findings: list[Finding]) -> str | N
                     "Формат: сначала самое важное, затем короткие выводы по технологиям, рынку, бизнесу и клиническим перспективам. "
                     "Пиши без воды, без длинных ссылок, без повторов и без неподтвержденных выводов. "
                     "Каждый смысловой блок должен быть удобен для Telegram-поста. "
+                    "Все иностранные заголовки и описания передавай только по-русски. "
+                    "Объясняй сложные технические термины простым языком. "
+                    "Оставляй только разработки, которые прямо связаны с восстановлением функций после травмы спинного мозга. "
                     "Не выдумывай факты, используй только список ниже.\n\n"
                     f"{_format_items(findings)}"
                 ),
