@@ -1,0 +1,15 @@
+[Unit]
+Description=SCI Treatment Radar daily digest agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/sci-treatment-radar
+EnvironmentFile=/opt/sci-treatment-radar/.env
+ExecStart=/opt/sci-treatment-radar/.venv/bin/python -m spinal_digest_agent serve
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
