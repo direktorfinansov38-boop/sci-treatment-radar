@@ -21,7 +21,20 @@ async def save_markdown(settings: Settings, digest: str) -> Path:
     return path
 
 
+async def _tg_post(client: httpx.AsyncClient, bot_token: str, method: str, payload: dict) -> None:
+    """Post to Telegram API with flood-control retry."""
+    url = f"https://api.telegram.org/bot{bot_token}/{method}"
+    response = await client.post(url, json=payload)
+    if response.status_code == 429:
+        retry_after = response.json().get("parameters", {}).get("retry_after", 30)
+        LOGGER.warning("Telegram flood control: sleeping %ds", retry_after)
+        await asyncio.sleep(retry_after)
+        response = await client.post(url, json=payload)
+    response.raise_for_status()
+
+
 async def send_telegram(settings: Settings, digest: str) -> None:
+    """Send full digest as text chunks (used for plain-text fallback / markdown archive)."""
     if not settings.telegram_bot_token or not settings.telegram_chat_id:
         return
     chunks = _telegram_chunks(digest)
@@ -29,29 +42,84 @@ async def send_telegram(settings: Settings, digest: str) -> None:
         for i, chunk in enumerate(chunks):
             if i > 0:
                 await asyncio.sleep(_TELEGRAM_INTER_MESSAGE_DELAY)
-            response = await client.post(
-                f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage",
-                json={
+            await _tg_post(
+                client,
+                settings.telegram_bot_token,
+                "sendMessage",
+                {
                     "chat_id": settings.telegram_chat_id,
                     "text": chunk,
                     "parse_mode": "HTML",
                     "disable_web_page_preview": True,
                 },
             )
-            if response.status_code == 429:
-                retry_after = response.json().get("parameters", {}).get("retry_after", 30)
-                LOGGER.warning("Telegram flood control: sleeping %ds", retry_after)
-                await asyncio.sleep(retry_after)
-                response = await client.post(
-                    f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage",
-                    json={
-                        "chat_id": settings.telegram_chat_id,
-                        "text": chunk,
-                        "parse_mode": "HTML",
-                        "disable_web_page_preview": True,
-                    },
-                )
-            response.raise_for_status()
+
+
+async def send_articles_to_telegram(
+    settings: Settings,
+    findings: list,
+    header: str | None = None,
+) -> None:
+    """Send each finding as a photo+caption message (new visual format)."""
+    from .models import Finding
+    from .render import format_article_caption
+
+    if not settings.telegram_bot_token or not settings.telegram_chat_id:
+        return
+    if not findings:
+        return
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        # Optional header message
+        if header:
+            await _tg_post(
+                client,
+                settings.telegram_bot_token,
+                "sendMessage",
+                {
+                    "chat_id": settings.telegram_chat_id,
+                    "text": header,
+                    "parse_mode": "HTML",
+                    "disable_web_page_preview": True,
+                },
+            )
+            await asyncio.sleep(_TELEGRAM_INTER_MESSAGE_DELAY)
+
+        for i, finding in enumerate(findings):
+            if i > 0:
+                await asyncio.sleep(_TELEGRAM_INTER_MESSAGE_DELAY)
+
+            caption = format_article_caption(finding)
+
+            if finding.og_image:
+                try:
+                    await _tg_post(
+                        client,
+                        settings.telegram_bot_token,
+                        "sendPhoto",
+                        {
+                            "chat_id": settings.telegram_chat_id,
+                            "photo": finding.og_image,
+                            "caption": caption,
+                            "parse_mode": "HTML",
+                        },
+                    )
+                    continue
+                except Exception as exc:
+                    LOGGER.debug("sendPhoto failed, falling back to sendMessage: %s", exc)
+
+            # Fallback: text message
+            await _tg_post(
+                client,
+                settings.telegram_bot_token,
+                "sendMessage",
+                {
+                    "chat_id": settings.telegram_chat_id,
+                    "text": caption,
+                    "parse_mode": "HTML",
+                    "disable_web_page_preview": False,
+                },
+            )
 
 
 def _telegram_chunks(digest: str, limit: int = 3800) -> list[str]:
@@ -108,8 +176,8 @@ async def send_webhook(settings: Settings, digest: str) -> None:
 
 
 async def deliver(settings: Settings, digest: str) -> Path:
+    """Save markdown + send text digest via email/webhook."""
     path = await save_markdown(settings, digest)
-    await send_telegram(settings, digest)
     send_email(settings, digest)
     await send_webhook(settings, digest)
     LOGGER.info("Digest saved to %s", path)

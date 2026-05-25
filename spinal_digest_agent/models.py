@@ -12,6 +12,10 @@ class Finding:
     region: str | None = None
     score: int = 0
     tags: tuple[str, ...] = field(default_factory=tuple)
+    # enrichment fields (filled by enrichment.py)
+    og_image: str | None = None
+    short_url: str | None = None
+    russian_title: str | None = None
 
     @property
     def dedupe_key(self) -> str:

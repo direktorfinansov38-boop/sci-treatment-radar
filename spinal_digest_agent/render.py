@@ -3,6 +3,42 @@ from html import escape
 
 from .models import Finding
 
+_SOURCE_EMOJI = {
+    "PubMed": "🔬",
+    "ClinicalTrials.gov": "🏥",
+    "Google News": "📰",
+}
+
+MONTHS_RU = [
+    "", "января", "февраля", "марта", "апреля", "мая", "июня",
+    "июля", "августа", "сентября", "октября", "ноября", "декабря",
+]
+
+
+def format_article_caption(finding: Finding) -> str:
+    """Single-article caption for Telegram photo message."""
+    emoji = _SOURCE_EMOJI.get(finding.source, "📄")
+    title = escape(finding.russian_title or finding.title)
+    link = escape(finding.short_url or finding.url, quote=True)
+
+    if finding.published_at:
+        d = finding.published_at
+        date_str = f"{d.day} {MONTHS_RU[d.month]} {d.year}"
+    else:
+        date_str = "дата не указана"
+
+    region_tag = ""
+    if finding.region:
+        flags = {"Russia": "🇷🇺", "China": "🇨🇳", "Israel": "🇮🇱", "United States": "🇺🇸"}
+        flag = flags.get(finding.region, "🌍")
+        region_tag = f" {flag}"
+
+    return (
+        f"{emoji}{region_tag} <b>{title}</b>\n\n"
+        f"📅 {date_str} · {escape(finding.source)}\n"
+        f'🔗 <a href="{link}">{link}</a>'
+    )
+
 
 REGION_NAMES = {
     "Russia": "Россия",
