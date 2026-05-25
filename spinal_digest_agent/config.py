@@ -14,8 +14,8 @@ class Settings(BaseSettings):
     digest_lookback_days: int = 3
     digest_max_items: int = 25
 
-    openai_api_key: str | None = None
-    openai_model: str = "gpt-4o-mini"
+    anthropic_api_key: str | None = None
+    claude_model: str = "claude-sonnet-4-6"
 
     telegram_bot_token: str | None = None
     telegram_chat_id: str | None = None

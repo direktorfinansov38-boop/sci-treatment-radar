@@ -1,4 +1,12 @@
+from datetime import UTC, datetime, timedelta
+
 from .models import Finding
+
+_RECENCY_TIERS = [
+    (timedelta(days=1), 10),
+    (timedelta(days=2), 6),
+    (timedelta(days=3), 3),
+]
 
 
 def score_finding(finding: Finding, high_priority_keywords: list[str]) -> Finding:
@@ -21,6 +29,14 @@ def score_finding(finding: Finding, high_priority_keywords: list[str]) -> Findin
         score += 6
     if "phase" in text or "first-in-human" in text:
         score += 6
+
+    # Recency bonus: fresher articles rank higher when scores are equal
+    if finding.published_at:
+        age = datetime.now(UTC) - finding.published_at
+        for threshold, bonus in _RECENCY_TIERS:
+            if age <= threshold:
+                score += bonus
+                break
 
     unique_tags = tuple(dict.fromkeys(tags))
     return Finding(

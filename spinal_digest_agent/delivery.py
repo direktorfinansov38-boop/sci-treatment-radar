@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import smtplib
 from datetime import datetime
@@ -9,6 +10,8 @@ import httpx
 from .config import Settings
 
 LOGGER = logging.getLogger(__name__)
+
+_TELEGRAM_INTER_MESSAGE_DELAY = 1.5  # seconds between chunks to avoid flood control
 
 
 async def save_markdown(settings: Settings, digest: str) -> Path:
@@ -23,7 +26,9 @@ async def send_telegram(settings: Settings, digest: str) -> None:
         return
     chunks = _telegram_chunks(digest)
     async with httpx.AsyncClient(timeout=25) as client:
-        for chunk in chunks:
+        for i, chunk in enumerate(chunks):
+            if i > 0:
+                await asyncio.sleep(_TELEGRAM_INTER_MESSAGE_DELAY)
             response = await client.post(
                 f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage",
                 json={
@@ -33,6 +38,19 @@ async def send_telegram(settings: Settings, digest: str) -> None:
                     "disable_web_page_preview": True,
                 },
             )
+            if response.status_code == 429:
+                retry_after = response.json().get("parameters", {}).get("retry_after", 30)
+                LOGGER.warning("Telegram flood control: sleeping %ds", retry_after)
+                await asyncio.sleep(retry_after)
+                response = await client.post(
+                    f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage",
+                    json={
+                        "chat_id": settings.telegram_chat_id,
+                        "text": chunk,
+                        "parse_mode": "HTML",
+                        "disable_web_page_preview": True,
+                    },
+                )
             response.raise_for_status()
 
 

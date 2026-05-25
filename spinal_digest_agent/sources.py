@@ -1,3 +1,4 @@
+import asyncio
 import html
 import logging
 from datetime import UTC, datetime, timedelta
@@ -54,7 +55,9 @@ async def fetch_google_news_rss(
         "https://news.google.com/rss/search?q="
         f"{quote_plus(query + ' when:' + str(lookback_days) + 'd')}&hl=en-US&gl=US&ceid=US:en"
     )
-    feed = feedparser.parse((await client.get(url, timeout=20)).text)
+    raw_text = (await client.get(url, timeout=20)).text
+    # feedparser is synchronous — run in executor to avoid blocking the event loop
+    feed = await asyncio.get_event_loop().run_in_executor(None, feedparser.parse, raw_text)
     findings: list[Finding] = []
     for entry in feed.entries:
         published = _parse_date(getattr(entry, "published", None))
@@ -173,21 +176,18 @@ async def collect_findings(queries: list[tuple[str, str | None]], lookback_days:
     timeout = httpx.Timeout(25)
     headers = {"User-Agent": "SCI-Treatment-Radar/0.1 (+https://github.com/)"}
     async with httpx.AsyncClient(timeout=timeout, headers=headers, follow_redirects=True) as client:
-        tasks = [
+        coros = [
             fetch_google_news_rss(client, query, region, lookback_days)
             for query, region in queries
         ]
-        tasks.extend(
-            [
-                fetch_pubmed(client, lookback_days),
-                fetch_clinical_trials(client, lookback_days),
-            ]
-        )
+        coros.extend([fetch_pubmed(client, lookback_days), fetch_clinical_trials(client, lookback_days)])
 
+        # Run all sources concurrently; return_exceptions so one failure doesn't cancel others
+        results = await asyncio.gather(*coros, return_exceptions=True)
         findings: list[Finding] = []
-        for task in tasks:
-            try:
-                findings.extend(await task)
-            except Exception as exc:
-                LOGGER.warning("Source failed: %s", exc)
+        for result in results:
+            if isinstance(result, Exception):
+                LOGGER.warning("Source failed: %s", result)
+            else:
+                findings.extend(result)
         return findings

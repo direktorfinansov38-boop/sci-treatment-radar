@@ -1,4 +1,4 @@
-from openai import AsyncOpenAI
+import anthropic
 
 from .config import Settings
 from .models import Finding
@@ -18,23 +18,21 @@ def _format_items(findings: list[Finding]) -> str:
 
 
 async def build_ai_brief(settings: Settings, findings: list[Finding]) -> str | None:
-    if not settings.openai_api_key or not findings:
+    if not settings.anthropic_api_key or not findings:
         return None
 
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-    response = await client.chat.completions.create(
-        model=settings.openai_model,
+    client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+    message = await client.messages.create(
+        model=settings.claude_model,
+        max_tokens=2048,
+        system=(
+            "You are a medical technology intelligence analyst. "
+            "Write only in Russian. Be concise, evidence-based, and avoid medical advice. "
+            "Use a clean Telegram digest style. Do not paste raw URLs. "
+            "Focus on spinal cord injury treatment trends, stem cells, cell therapy, devices, trials, and regional relevance. "
+            "Exclude general disability news, household products, pillows, mattresses, basic wheelchairs, charity, motivation, wellness, and anything unrelated to functional recovery after spinal cord injury."
+        ),
         messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are a medical technology intelligence analyst. "
-                    "Write only in Russian. Be concise, evidence-based, and avoid medical advice. "
-                    "Use a clean Telegram digest style. Do not paste raw URLs. "
-                    "Focus on spinal cord injury treatment trends, stem cells, cell therapy, devices, trials, and regional relevance."
-                    "Exclude general disability news, household products, pillows, mattresses, basic wheelchairs, charity, motivation, wellness, and anything unrelated to functional recovery after spinal cord injury."
-                ),
-            },
             {
                 "role": "user",
                 "content": (
@@ -48,8 +46,9 @@ async def build_ai_brief(settings: Settings, findings: list[Finding]) -> str | N
                     "Не выдумывай факты, используй только список ниже.\n\n"
                     f"{_format_items(findings)}"
                 ),
-            },
+            }
         ],
-        temperature=0.2,
     )
-    return response.choices[0].message.content
+    # content block may be empty on filtered responses
+    block = message.content[0] if message.content else None
+    return block.text if block and hasattr(block, "text") else None

@@ -1,4 +1,5 @@
 import json
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -43,5 +44,12 @@ class SentHistory:
             for key in self._keys_for(finding):
                 items[key] = payload
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("w", encoding="utf-8") as handle:
-            json.dump(self._data, handle, ensure_ascii=False, indent=2)
+        # Write to a temp file then rename for atomic update — prevents corruption on kill
+        tmp_fd, tmp_path = tempfile.mkstemp(dir=self.path.parent, suffix=".tmp")
+        try:
+            with open(tmp_fd, "w", encoding="utf-8") as handle:
+                json.dump(self._data, handle, ensure_ascii=False, indent=2)
+            Path(tmp_path).replace(self.path)
+        except Exception:
+            Path(tmp_path).unlink(missing_ok=True)
+            raise
