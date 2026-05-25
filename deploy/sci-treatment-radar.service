@@ -2,6 +2,8 @@
 Description=SCI Treatment Radar daily digest agent
 After=network-online.target
 Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=20
 
 [Service]
 Type=simple
@@ -9,7 +11,18 @@ WorkingDirectory=/opt/sci-treatment-radar
 EnvironmentFile=/opt/sci-treatment-radar/.env
 ExecStart=/opt/sci-treatment-radar/.venv/bin/python -m spinal_digest_agent serve
 Restart=always
-RestartSec=10
+RestartSec=15
+TimeoutStartSec=60
+TimeoutStopSec=30
+KillSignal=SIGINT
+
+# Conservative hardening. The agent only needs network access and write access
+# to its own digest/state folders.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/sci-treatment-radar/digests /opt/sci-treatment-radar/state
 
 [Install]
 WantedBy=multi-user.target

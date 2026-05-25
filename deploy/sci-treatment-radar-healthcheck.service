@@ -1,0 +1,8 @@
+[Unit]
+Description=Healthcheck for SCI Treatment Radar
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/sci-treatment-radar/deploy/sci-treatment-radar-healthcheck.sh
