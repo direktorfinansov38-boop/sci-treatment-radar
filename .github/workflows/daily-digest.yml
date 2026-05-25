@@ -1,0 +1,56 @@
+name: Daily SCI Treatment Digest
+
+on:
+  schedule:
+    # 10:00 Asia/Ulaanbaatar = 02:00 UTC
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Prepare persistent state folder
+        run: mkdir -p state
+
+      - name: Restore sent-history cache
+        uses: actions/cache@v4
+        with:
+          path: state/
+          key: sci-agent-state-${{ github.run_id }}
+          restore-keys: |
+            sci-agent-state-
+
+      - name: Run digest
+        env:
+          DIGEST_TIMEZONE: Asia/Ulaanbaatar
+          DIGEST_HOUR: "10"
+          DIGEST_MINUTE: "0"
+          DIGEST_LOOKBACK_DAYS: "3"
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-4o-mini' }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+          STATE_PATH: state/sent_history.json
+        run: python -m spinal_digest_agent run-once
+
+      - name: Upload digest artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sci-digests
+          path: digests/
+          if-no-files-found: ignore
