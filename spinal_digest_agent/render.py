@@ -7,6 +7,7 @@ _SOURCE_EMOJI = {
     "PubMed": "🔬",
     "ClinicalTrials.gov": "🏥",
     "Google News": "📰",
+    "Яндекс Новости": "🇷🇺",
 }
 
 MONTHS_RU = [
@@ -56,15 +57,15 @@ def _topic_title(item: Finding) -> str:
     text = f"{item.title} {item.summary} {' '.join(item.tags)}".lower()
     region = _region_name(item.region)
 
-    if any(word in text for word in ["stem cell", "cell therapy", "msc", "nsc", "ipsc", "клеточ"]):
+    if any(word in text for word in ["stem cell", "cell therapy", "msc", "nsc", "ipsc", "клеточ", "стволов", "трансплантац", "экзосом", "мезенхим", "матриселф", "нейромат"]):
         return f"Клеточная терапия и стволовые клетки: {region}"
-    if any(word in text for word in ["clinical trial", "phase", "клиничес"]):
+    if any(word in text for word in ["clinical trial", "phase", "клиничес", "испытани"]):
         return f"Клинические испытания по травме спинного мозга: {region}"
-    if any(word in text for word in ["neurostimulation", "epidural stimulation", "нейростим"]):
+    if any(word in text for word in ["neurostimulation", "epidural stimulation", "нейростим", "электростимул", "эпидуральн"]):
         return f"Нейростимуляция при травме спинного мозга: {region}"
     if any(word in text for word in ["exoskeleton", "robot", "экзоскелет", "реабилитац"]):
         return f"Реабилитационные технологии и аппараты: {region}"
-    if any(word in text for word in ["implant", "device", "fda", "аппарат"]):
+    if any(word in text for word in ["implant", "device", "fda", "аппарат", "имплант"]):
         return f"Новые устройства и импланты: {region}"
     return f"Новая разработка по лечению травмы спинного мозга: {region}"
 
@@ -79,7 +80,7 @@ def _brief(item: Finding) -> str:
         f"Появился новый материал по теме лечения травмы спинного мозга. Региональный фокус: {escape(region)}; источник: {source}; дата: {date}.",
     ]
 
-    if any(word in text for word in ["stem cell", "cell therapy", "msc", "nsc", "ipsc", "exosome", "клеточ", "стволовые"]):
+    if any(word in text for word in ["stem cell", "cell therapy", "msc", "nsc", "ipsc", "exosome", "клеточ", "стволов", "трансплантац", "экзосом", "мезенхим", "матриселф", "нейромат"]):
         parts.append(
             "Главный интерес — клеточная терапия, стволовые клетки, экзосомы или смежные регенеративные подходы. Это важно для отслеживания направлений, где могут появляться новые клинические протоколы, патенты, инвестиции и медицинские технологии."
         )
@@ -114,7 +115,7 @@ def _perspective(item: Finding) -> str:
         return (
             "Перспективность: выше средней. Технология выглядит значимой, но, скорее всего, еще требует клинического подтверждения, настройки протоколов и оценки безопасности для широкого применения."
         )
-    if any(word in text for word in ["stem cell", "cell therapy", "cell transplantation", "exosome", "ipsc", "mesenchymal", "neural stem"]):
+    if any(word in text for word in ["stem cell", "cell therapy", "cell transplantation", "exosome", "ipsc", "mesenchymal", "neural stem", "стволов", "клеточн", "трансплантац", "экзосом", "мезенхим", "нейральн", "матриселф", "нейромат"]):
         return (
             "Перспективность: осторожно высокая. Клеточные и регенеративные подходы потенциально важны для восстановления тканей и функций, но практическая польза зависит от стадии испытаний, безопасности и воспроизводимости результата."
         )

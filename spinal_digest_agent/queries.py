@@ -8,6 +8,10 @@ def load_queries(path: Path) -> dict[str, Any]:
         return json.load(handle)
 
 
+def all_yandex_queries(query_config: dict[str, Any]) -> list[str]:
+    return query_config.get("yandex_terms", [])
+
+
 def all_news_queries(query_config: dict[str, Any]) -> list[tuple[str, str | None]]:
     rows: list[tuple[str, str | None]] = []
     for term in query_config.get("core_terms", []):

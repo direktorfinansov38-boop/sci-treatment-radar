@@ -5,7 +5,7 @@ from html import escape
 from .config import Settings
 from .delivery import deliver, send_articles_to_telegram
 from .enrichment import enrich_findings
-from .queries import all_news_queries, load_queries
+from .queries import all_news_queries, all_yandex_queries, load_queries
 from .relevance import filter_relevant
 from .render import render_digest
 from .scoring import dedupe_and_rank
@@ -26,7 +26,7 @@ def _build_header(count: int, ai_brief: str | None) -> str:
     header = (
         f"<b>🧬 SCI Treatment Radar — {date_str}</b>\n"
         f"Новых материалов по теме лечения ТСМ: <b>{count}</b>\n"
-        "Источники: PubMed · ClinicalTrials.gov · Google News"
+        "Источники: Яндекс Новости · PubMed · ClinicalTrials.gov · Google News"
     )
     if ai_brief:
         header += f"\n\n{escape(ai_brief)}"
@@ -36,7 +36,8 @@ def _build_header(count: int, ai_brief: str | None) -> str:
 async def run_digest(settings: Settings) -> str:
     query_config = load_queries(settings.queries_path)
     queries = all_news_queries(query_config)
-    raw_findings = await collect_findings(queries, settings.digest_lookback_days)
+    yandex_queries = all_yandex_queries(query_config)
+    raw_findings = await collect_findings(queries, yandex_queries, settings.digest_lookback_days)
     relevant_findings = filter_relevant(raw_findings)
     ranked_findings = dedupe_and_rank(
         relevant_findings,
