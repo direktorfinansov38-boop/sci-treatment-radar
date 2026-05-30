@@ -172,50 +172,60 @@ async def fetch_clinical_trials(client: httpx.AsyncClient, lookback_days: int) -
     return findings
 
 
-async def fetch_yandex_news_rss(
+_RU_SCI_KEYWORDS = frozenset([
+    "спинной мозг", "стволовые клетки", "клеточная терапия",
+    "нейростимуляция", "экзоскелет", "параплегия", "тетраплегия",
+    "нейроинтерфейс", "нейромат", "матриселф",
+    "клеточная трансплантация", "мезенхимальные",
+    "нейральные стволовые", "экзосомы", "регенерация нерв",
+])
+
+_RUSSIAN_RSS_FEEDS = [
+    ("https://ria.ru/export/rss2/science/index.xml", "РИА Новости"),
+    ("https://tass.ru/rss/v2.xml", "ТАСС"),
+    ("https://naked-science.ru/feed/", "Naked Science"),
+    ("https://medvestnik.ru/rss", "Медвестник"),
+]
+
+
+async def fetch_russian_rss_sources(
     client: httpx.AsyncClient,
-    query: str,
     lookback_days: int,
 ) -> list[Finding]:
     cutoff = _cutoff(lookback_days)
-    url = (
-        "https://news.yandex.ru/yandsearch?"
-        f"text={quote_plus(query)}&rpt=nnews2&grhow=clutop&format=rss"
-    )
-    try:
-        response = await client.get(
-            url,
-            timeout=20,
-            headers={"User-Agent": "Mozilla/5.0 (compatible; SCI-Radar/1.0)"},
-        )
-        feed = await asyncio.get_event_loop().run_in_executor(None, feedparser.parse, response.text)
-    except Exception as exc:
-        LOGGER.warning("Yandex News RSS failed for query %r: %s", query, exc)
-        return []
-
-    if feed.bozo and not feed.entries:
-        LOGGER.warning("Yandex News RSS empty or malformed for query %r", query)
-        return []
-
     findings: list[Finding] = []
-    for entry in feed.entries:
-        title = _clean_html(getattr(entry, "title", ""))
-        url_entry = getattr(entry, "link", "")
-        if not title or not url_entry:
-            continue
-        published = _parse_date(getattr(entry, "published", None))
-        if published and published < cutoff:
-            continue
-        findings.append(
-            Finding(
-                title=title,
-                url=url_entry,
-                source="Яндекс Новости",
-                published_at=published,
-                summary=_clean_html(getattr(entry, "summary", "")),
-                region="Russia",
+    for feed_url, source_name in _RUSSIAN_RSS_FEEDS:
+        try:
+            response = await client.get(
+                feed_url,
+                timeout=15,
+                headers={"User-Agent": "Mozilla/5.0 (compatible; SCI-Radar/1.0)"},
             )
-        )
+            feed = await asyncio.get_event_loop().run_in_executor(None, feedparser.parse, response.text)
+            for entry in feed.entries:
+                title = _clean_html(getattr(entry, "title", ""))
+                url_entry = getattr(entry, "link", "")
+                summary = _clean_html(getattr(entry, "summary", ""))
+                if not title or not url_entry:
+                    continue
+                text = (title + " " + summary).lower()
+                if not any(kw in text for kw in _RU_SCI_KEYWORDS):
+                    continue
+                published = _parse_date(getattr(entry, "published", None))
+                if published and published < cutoff:
+                    continue
+                findings.append(
+                    Finding(
+                        title=title,
+                        url=url_entry,
+                        source=source_name,
+                        published_at=published,
+                        summary=summary,
+                        region="Russia",
+                    )
+                )
+        except Exception as exc:
+            LOGGER.warning("Russian RSS failed for %s: %s", source_name, exc)
     return findings
 
 
@@ -227,11 +237,8 @@ async def collect_findings(
     timeout = httpx.Timeout(25)
     headers = {"User-Agent": "SCI-Treatment-Radar/0.1 (+https://github.com/)"}
     async with httpx.AsyncClient(timeout=timeout, headers=headers, follow_redirects=True) as client:
-        # Яндекс идёт первым — приоритет российских источников
-        coros = [
-            fetch_yandex_news_rss(client, query, lookback_days)
-            for query in yandex_queries
-        ]
+        # Российские источники идут первыми — прямые RSS-ленты (без гео-блокировки)
+        coros: list = [fetch_russian_rss_sources(client, lookback_days)]
         coros.extend(
             fetch_google_news_rss(client, query, region, lookback_days)
             for query, region in queries

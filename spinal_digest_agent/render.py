@@ -7,6 +7,10 @@ _SOURCE_EMOJI = {
     "PubMed": "🔬",
     "ClinicalTrials.gov": "🏥",
     "Google News": "📰",
+    "РИА Новости": "🇷🇺",
+    "ТАСС": "🇷🇺",
+    "Naked Science": "🇷🇺",
+    "Медвестник": "🇷🇺",
     "Яндекс Новости": "🇷🇺",
 }
 

@@ -26,7 +26,7 @@ def _build_header(count: int, ai_brief: str | None) -> str:
     header = (
         f"<b>🧬 SCI Treatment Radar — {date_str}</b>\n"
         f"Новых материалов по теме лечения ТСМ: <b>{count}</b>\n"
-        "Источники: Яндекс Новости · PubMed · ClinicalTrials.gov · Google News"
+        "Источники: РИА Новости · ТАСС · Медвестник · PubMed · ClinicalTrials.gov · Google News"
     )
     if ai_brief:
         header += f"\n\n{escape(ai_brief)}"
